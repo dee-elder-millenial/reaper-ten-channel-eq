@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented here.
 
+## 1.0.1 - 2026-05-31
+
+- Added a horizontal custom graphic-EQ interface with draggable band controls.
+- Kept the standard REAPER sliders available for automation and precise values.
+
 ## 1.0.0 - 2026-05-31
 
 - Initial release.
