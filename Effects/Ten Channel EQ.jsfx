@@ -1,0 +1,108 @@
+desc:Ten Channel EQ
+// A simple 10-band graphic equalizer for REAPER JSFX.
+// Fixed peaking bands with input and output trims.
+// Version: 1.0.0
+// License: MIT
+
+slider1:0<-24,24,0.1>Input (dB)
+slider2:0<-15,15,0.1>31 Hz
+slider3:0<-15,15,0.1>63 Hz
+slider4:0<-15,15,0.1>125 Hz
+slider5:0<-15,15,0.1>250 Hz
+slider6:0<-15,15,0.1>500 Hz
+slider7:0<-15,15,0.1>1 kHz
+slider8:0<-15,15,0.1>2 kHz
+slider9:0<-15,15,0.1>4 kHz
+slider10:0<-15,15,0.1>8 kHz
+slider11:0<-15,15,0.1>16 kHz
+slider12:0<-24,24,0.1>Output (dB)
+
+@init
+coef_b0 = 0;
+coef_b1 = 16;
+coef_b2 = 32;
+coef_a1 = 48;
+coef_a2 = 64;
+state_l = 80;
+state_r = 128;
+
+q = 1.25;
+memset(0, 0, 176);
+
+function calc_peak(band, freq, gain_db, q_value) local(A, omega, sn, cs, alpha, a0) (
+  freq = min(freq, srate * 0.45);
+  A = 10 ^ (gain_db / 40);
+  omega = 2 * $pi * freq / srate;
+  sn = sin(omega);
+  cs = cos(omega);
+  alpha = sn / (2 * q_value);
+  a0 = 1 + alpha / A;
+
+  coef_b0[band] = (1 + alpha * A) / a0;
+  coef_b1[band] = (-2 * cs) / a0;
+  coef_b2[band] = (1 - alpha * A) / a0;
+  coef_a1[band] = (-2 * cs) / a0;
+  coef_a2[band] = (1 - alpha / A) / a0;
+);
+
+function process_peak(input, band, state_base) local(offset, output, x1, x2, y1, y2) (
+  offset = band * 4;
+  x1 = state_base[offset];
+  x2 = state_base[offset + 1];
+  y1 = state_base[offset + 2];
+  y2 = state_base[offset + 3];
+
+  output = coef_b0[band] * input + coef_b1[band] * x1 + coef_b2[band] * x2 - coef_a1[band] * y1 - coef_a2[band] * y2;
+
+  state_base[offset + 1] = x1;
+  state_base[offset] = input;
+  state_base[offset + 3] = y1;
+  state_base[offset + 2] = output;
+
+  abs(output) < 0.000000000000000000000001 ? output = 0;
+  output;
+);
+
+@slider
+input_gain = 10 ^ (slider1 / 20);
+output_gain = 10 ^ (slider12 / 20);
+
+calc_peak(0, 31, slider2, q);
+calc_peak(1, 63, slider3, q);
+calc_peak(2, 125, slider4, q);
+calc_peak(3, 250, slider5, q);
+calc_peak(4, 500, slider6, q);
+calc_peak(5, 1000, slider7, q);
+calc_peak(6, 2000, slider8, q);
+calc_peak(7, 4000, slider9, q);
+calc_peak(8, 8000, slider10, q);
+calc_peak(9, 16000, slider11, q);
+
+@sample
+left = spl0 * input_gain;
+right = spl1 * input_gain;
+
+left = process_peak(left, 0, state_l);
+left = process_peak(left, 1, state_l);
+left = process_peak(left, 2, state_l);
+left = process_peak(left, 3, state_l);
+left = process_peak(left, 4, state_l);
+left = process_peak(left, 5, state_l);
+left = process_peak(left, 6, state_l);
+left = process_peak(left, 7, state_l);
+left = process_peak(left, 8, state_l);
+left = process_peak(left, 9, state_l);
+
+right = process_peak(right, 0, state_r);
+right = process_peak(right, 1, state_r);
+right = process_peak(right, 2, state_r);
+right = process_peak(right, 3, state_r);
+right = process_peak(right, 4, state_r);
+right = process_peak(right, 5, state_r);
+right = process_peak(right, 6, state_r);
+right = process_peak(right, 7, state_r);
+right = process_peak(right, 8, state_r);
+right = process_peak(right, 9, state_r);
+
+spl0 = left * output_gain;
+spl1 = right * output_gain;
