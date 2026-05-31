@@ -7,6 +7,7 @@ This plugin is intentionally small, readable, and dependency-free. It uses ten f
 ## Features
 
 - Native REAPER JSFX plugin, no VST/AU build step required
+- Horizontal graphic-EQ interface with ten draggable bands
 - 10 fixed EQ bands from 31 Hz to 16 kHz
 - +/-15 dB gain per band
 - Input and output trim controls
@@ -37,6 +38,8 @@ Important: JSFX files go in REAPER's `Effects` folder, not `UserPlugins`. `UserP
 More detailed installation notes are in [INSTALL.md](INSTALL.md).
 
 ## Bands
+
+The custom JSFX interface arranges these bands left-to-right like a classic graphic equalizer. Drag a band up to boost or down to cut.
 
 | Band | Center frequency |
 | --- | --- |
