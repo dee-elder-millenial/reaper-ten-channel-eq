@@ -1,7 +1,7 @@
 desc:Ten Channel EQ
 // A simple 10-band graphic equalizer for REAPER JSFX.
-// Fixed peaking bands with input and output trims.
-// Version: 1.0.0
+// Fixed peaking bands with a horizontal graphic-EQ interface.
+// Version: 1.0.1
 // License: MIT
 
 slider1:0<-24,24,0.1>Input (dB)
@@ -27,6 +27,8 @@ state_l = 80;
 state_r = 128;
 
 q = 1.25;
+active_band = -1;
+last_mouse_cap = 0;
 memset(0, 0, 176);
 
 function calc_peak(band, freq, gain_db, q_value) local(A, omega, sn, cs, alpha, a0) (
@@ -63,20 +65,92 @@ function process_peak(input, band, state_base) local(offset, output, x1, x2, y1,
   output;
 );
 
+function update_filters() (
+  calc_peak(0, 31, slider2, q);
+  calc_peak(1, 63, slider3, q);
+  calc_peak(2, 125, slider4, q);
+  calc_peak(3, 250, slider5, q);
+  calc_peak(4, 500, slider6, q);
+  calc_peak(5, 1000, slider7, q);
+  calc_peak(6, 2000, slider8, q);
+  calc_peak(7, 4000, slider9, q);
+  calc_peak(8, 8000, slider10, q);
+  calc_peak(9, 16000, slider11, q);
+);
+
+function band_value(band) (
+  band == 0 ? slider2 :
+  band == 1 ? slider3 :
+  band == 2 ? slider4 :
+  band == 3 ? slider5 :
+  band == 4 ? slider6 :
+  band == 5 ? slider7 :
+  band == 6 ? slider8 :
+  band == 7 ? slider9 :
+  band == 8 ? slider10 :
+  slider11;
+);
+
+function set_band_value(band, value) (
+  value = min(15, max(-15, floor(value * 10 + 0.5) / 10));
+  band == 0 ? (slider2 = value; slider_automate(slider2);) :
+  band == 1 ? (slider3 = value; slider_automate(slider3);) :
+  band == 2 ? (slider4 = value; slider_automate(slider4);) :
+  band == 3 ? (slider5 = value; slider_automate(slider5);) :
+  band == 4 ? (slider6 = value; slider_automate(slider6);) :
+  band == 5 ? (slider7 = value; slider_automate(slider7);) :
+  band == 6 ? (slider8 = value; slider_automate(slider8);) :
+  band == 7 ? (slider9 = value; slider_automate(slider9);) :
+  band == 8 ? (slider10 = value; slider_automate(slider10);) :
+  (slider11 = value; slider_automate(slider11););
+  update_filters();
+);
+
+function band_label(band) (
+  band == 0 ? gfx_drawstr("31") :
+  band == 1 ? gfx_drawstr("63") :
+  band == 2 ? gfx_drawstr("125") :
+  band == 3 ? gfx_drawstr("250") :
+  band == 4 ? gfx_drawstr("500") :
+  band == 5 ? gfx_drawstr("1k") :
+  band == 6 ? gfx_drawstr("2k") :
+  band == 7 ? gfx_drawstr("4k") :
+  band == 8 ? gfx_drawstr("8k") :
+  gfx_drawstr("16k");
+);
+
+function draw_band(band, left, top, width, height) local(center_x, zero_y, value, knob_y) (
+  center_x = left + width * 0.5;
+  zero_y = top + height * 0.5;
+  value = band_value(band);
+  knob_y = top + (15 - value) / 30 * height;
+
+  gfx_set(0.20, 0.22, 0.24, 1);
+  gfx_line(center_x, top, center_x, top + height);
+
+  gfx_set(0.42, 0.45, 0.48, 1);
+  gfx_line(left + 4, zero_y, left + width - 4, zero_y);
+
+  gfx_set(0.95, 0.75, 0.24, 1);
+  gfx_rect(center_x - 13, knob_y - 5, 26, 10);
+
+  gfx_set(0.08, 0.09, 0.10, 1);
+  gfx_rect(center_x - 10, knob_y - 2, 20, 4);
+
+  gfx_set(0.82, 0.85, 0.88, 1);
+  gfx_x = center_x - 12;
+  gfx_y = top + height + 10;
+  band_label(band);
+
+  gfx_x = center_x - 17;
+  gfx_y = top + height + 28;
+  gfx_drawnumber(value, 1);
+);
+
 @slider
 input_gain = 10 ^ (slider1 / 20);
 output_gain = 10 ^ (slider12 / 20);
-
-calc_peak(0, 31, slider2, q);
-calc_peak(1, 63, slider3, q);
-calc_peak(2, 125, slider4, q);
-calc_peak(3, 250, slider5, q);
-calc_peak(4, 500, slider6, q);
-calc_peak(5, 1000, slider7, q);
-calc_peak(6, 2000, slider8, q);
-calc_peak(7, 4000, slider9, q);
-calc_peak(8, 8000, slider10, q);
-calc_peak(9, 16000, slider11, q);
+update_filters();
 
 @sample
 left = spl0 * input_gain;
@@ -106,3 +180,52 @@ right = process_peak(right, 9, state_r);
 
 spl0 = left * output_gain;
 spl1 = right * output_gain;
+
+@gfx 640 320
+margin = 28;
+header_h = 30;
+footer_h = 58;
+track_top = header_h + 24;
+track_h = max(110, gfx_h - header_h - footer_h - 38);
+band_w = (gfx_w - margin * 2) / 10;
+
+mouse_down = mouse_cap & 1;
+mouse_down && !last_mouse_cap ? (
+  active_band = -1;
+  mouse_y >= track_top - 12 && mouse_y <= track_top + track_h + 12 && mouse_x >= margin && mouse_x <= gfx_w - margin ? (
+    active_band = floor((mouse_x - margin) / band_w);
+    active_band = min(9, max(0, active_band));
+  );
+);
+
+mouse_down && active_band >= 0 ? (
+  set_band_value(active_band, 15 - (mouse_y - track_top) / track_h * 30);
+);
+
+!mouse_down ? active_band = -1;
+last_mouse_cap = mouse_down;
+
+gfx_set(0.07, 0.08, 0.09, 1);
+gfx_rect(0, 0, gfx_w, gfx_h);
+
+gfx_set(0.86, 0.88, 0.90, 1);
+gfx_x = margin;
+gfx_y = 12;
+gfx_drawstr("Ten Channel EQ");
+
+gfx_set(0.58, 0.62, 0.66, 1);
+gfx_x = gfx_w - margin - 46;
+gfx_y = 12;
+gfx_drawstr("+15 dB");
+gfx_x = gfx_w - margin - 40;
+gfx_y = track_top + track_h * 0.5 - 7;
+gfx_drawstr("0 dB");
+gfx_x = gfx_w - margin - 46;
+gfx_y = track_top + track_h - 10;
+gfx_drawstr("-15 dB");
+
+band = 0;
+loop(10,
+  draw_band(band, margin + band * band_w, track_top, band_w, track_h);
+  band += 1;
+);
